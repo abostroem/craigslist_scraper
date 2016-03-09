@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 
-FILE_LOCATIONS = '/Users/abostroem/Desktop/craigslist_scraper'
+FILE_LOCATIONS = '/Users/abostroem/Desktop/repositories/craigslist_scraper'
 SAVED_RESULTS_FILENAME = "last_run_davis.pkl"
 
 def get_login_credentials():
@@ -66,14 +66,13 @@ def find_davis_ads(indiv_ads):
 	davis_ads_dict = {}
 	ad_num = 0
 	for i, ad in enumerate(indiv_ads):
-
-		title = ad.split('class="hdrlnk">')[1].split('</a>')[0]
+		title = ad.split('titletextonly">')[1].split('</span>')[0]
 		try:
 			location = ad.split('class="pnr"> <small> ')[1].split('</small>')[0]
 		except IndexError: #If no location listed
 			location = ''
 		try:
-			price = float(ad.split('class="price">&#x0024;')[1].split('</span>')[0])
+			price = float(ad.split('class="price">$')[1].split('</span>')[0])
 		except IndexError: #If no price listed
 			price = 0
 		url = ad.split('<a href="')[1].split('" class="i"')[0]
@@ -86,10 +85,12 @@ def find_davis_ads(indiv_ads):
 		today = datetime.today()
 		this_morning = datetime.strptime('{} {} {}'.format(today.month, today.day, today.year), '%m %d %Y')
 		computer_date = datetime.strptime('{} {} {}'.format(month, day, year), '%m %d %Y')
+		cats = 'no'
+		if 'cat' in ad.lower() or 'pet' in ad.lower():
+		    cats = 'yes'
 		if (((location == '') and ('davis' in title.lower())) or
-					('davis' in location.lower())) and \
-				(price < 950) and \
-				('room' not in title.lower()) and \
+				('davis' in location.lower())) and \
+				(price < 1300) and \
 				('share' not in title.lower()): #and (computer_date > this_morning):
 			ad_num += 1
 			davis_ads_dict[title.replace(' ', '_')] = {'title':title,
@@ -97,7 +98,8 @@ def find_davis_ads(indiv_ads):
 										'price':price,
 										'date':date,
 										'bedrooms':num_bedrooms,
-										'url':'"http://sacramento.craigslist.org'+,url}
+										'cats':cats,
+										'url':'"http://sacramento.craigslist.org'+url}
 	return davis_ads_dict
 
 
@@ -116,18 +118,20 @@ def find_new_entries(davis_ads_dict):
 		for ad in davis_ads_dict.keys():
 			if ad not in old_ad_titles:
 				email_txt += '{} \n\tPrice: {}, \n\tLocation: {}, \n\tDate posted: {}, \
-						\n\tBedrooms: {},\n\tlink: {}\n\n'.format(
+						\n\tBedrooms: {}, \n\tCats:{} \n\tlink: {}\n\n'.format(
 					davis_ads_dict[ad]['title'], davis_ads_dict[ad]['price'],
 					davis_ads_dict[ad]['location'], davis_ads_dict[ad]['date'],
-					davis_ads_dict[ad]['bedrooms'], davis_ads_dict[ad]['url'])
+					davis_ads_dict[ad]['bedrooms'], davis_ads_dict[ad]['cats'],
+					davis_ads_dict[ad]['url'])
 	else:
 		email_txt = ''
 		for ad in davis_ads_dict.keys():
 			email_txt += '{} \n\tPrice: {}, \n\tLocation: {}, \n\tDate posted: {}, \
-					\n\tBedrooms: {},\n\tlink: {}\n\n'.format(
+					\n\tBedrooms: {}, \n\tCats:{} ,\n\tlink: {}\n\n'.format(
 				davis_ads_dict[ad]['title'], davis_ads_dict[ad]['price'],
 				davis_ads_dict[ad]['location'], davis_ads_dict[ad]['date'],
-				davis_ads_dict[ad]['bedrooms'], davis_ads_dict[ad]['url'])
+				davis_ads_dict[ad]['bedrooms'], davis_ads_dict[ad]['cats'],
+				davis_ads_dict[ad]['url'])
 	return email_txt
 
 
@@ -147,7 +151,11 @@ def write_log(email_txt):
 			ofile.write('{} email sent \n'.format(datetime.ctime(today)))
 		else:
 			ofile.write('{} Nothing to report \n'.format(datetime.ctime(today)))
-
+def write_html(email_txt):
+    ofile = open('output.html', 'w')
+    for iline in email_txt:
+        ofile.write(iline)
+    ofile.close()
 
 if __name__ == "__main__":
 	all_lines = read_in_files('craigslist.html')
@@ -155,7 +163,8 @@ if __name__ == "__main__":
 	davis_ads_dict = find_davis_ads(indiv_ads)
 	email_txt = find_new_entries(davis_ads_dict)
 	if len(email_txt) > 1:
-		send_email(email_txt)
+	    print(email_txt)
+		#send_email(email_txt)
 	pickle_dictionary(davis_ads_dict)
 	write_log(email_txt)
 
